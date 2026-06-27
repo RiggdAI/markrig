@@ -52,3 +52,25 @@ test('disk change to a non-open file is ignored', () => {
   useDocStore.getState().onDiskChange('/p/other.md', 'x');
   expect(useDocStore.getState().editorContent).toBe('# A');
 });
+
+test("resolveConflict('keep') clears the conflict but preserves the user's edits", () => {
+  useDocStore.getState().openFile('/p/a.md', '# A');
+  useDocStore.getState().setEditorContent('# mine');
+  useDocStore.getState().onDiskChange('/p/a.md', '# theirs');
+  useDocStore.getState().resolveConflict('keep');
+  const s = useDocStore.getState();
+  expect(s.conflict).toBe(false);
+  expect(s.editorContent).toBe('# mine');
+  expect(s.diskContent).toBe('# theirs');
+  expect(isDirty(s)).toBe(true);
+});
+
+test('markSaved makes the document clean by syncing disk to editor', () => {
+  useDocStore.getState().openFile('/p/a.md', '# A');
+  useDocStore.getState().setEditorContent('# edited');
+  expect(isDirty(useDocStore.getState())).toBe(true);
+  useDocStore.getState().markSaved();
+  const s = useDocStore.getState();
+  expect(s.diskContent).toBe('# edited');
+  expect(isDirty(s)).toBe(false);
+});
