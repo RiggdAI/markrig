@@ -35,19 +35,22 @@ export default function App() {
     s.openFile(path, await readFile(path));
   }
 
-  async function save() {
-    if (!s.openPath) return;
-    await writeFile(s.openPath, s.editorContent);
-    s.markSaved();
+  function doSave() {
+    const { openPath, editorContent, markSaved } = useDocStore.getState();
+    if (!openPath) return;
+    void writeFile(openPath, editorContent).then(() => markSaved());
   }
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); save(); }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        doSave();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  });
+  }, []);
 
   return (
     <main className="app">
@@ -71,7 +74,7 @@ export default function App() {
                   className={s.viewMode === 'source' ? 'active' : ''}
                   onClick={() => s.setViewMode('source')}
                 >Source</button>
-                <button onClick={save} disabled={!dirty}>Save</button>
+                <button onClick={doSave} disabled={!dirty}>Save</button>
               </div>
             </header>
             {s.conflict && (
