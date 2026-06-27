@@ -9,6 +9,7 @@ interface DocState {
   editorContent: string;
   viewMode: ViewMode;
   conflict: boolean;
+  error: string | null;
   setRoot: (root: string) => void;
   setTree: (tree: TreeNode) => void;
   openFile: (path: string, content: string) => void;
@@ -17,6 +18,7 @@ interface DocState {
   onDiskChange: (path: string, content: string) => void;
   resolveConflict: (choice: 'reload' | 'keep') => void;
   setViewMode: (mode: ViewMode) => void;
+  setError: (error: string | null) => void;
 }
 
 export const isDirty = (s: Pick<DocState, 'diskContent' | 'editorContent'>): boolean =>
@@ -30,6 +32,7 @@ export const useDocStore = create<DocState>((set, get) => ({
   editorContent: '',
   viewMode: 'rendered',
   conflict: false,
+  error: null,
   setRoot: (root) => set({ root }),
   setTree: (tree) => set({ tree }),
   openFile: (path, content) =>
@@ -53,4 +56,5 @@ export const useDocStore = create<DocState>((set, get) => ({
     }
   },
   setViewMode: (mode) => set({ viewMode: mode }),
+  setError: (error) => set({ error }),
 }));

@@ -20,21 +20,34 @@ export default function App() {
 
   useEffect(() => {
     const unlisten = onMdEvent(async (e) => {
-      const { root } = useDocStore.getState();
-      if (root) useDocStore.getState().setTree(await scanTree(root));
-      if (e.path === useDocStore.getState().openPath && e.kind !== 'deleted') {
-        useDocStore.getState().onDiskChange(e.path, await readFile(e.path));
+      try {
+        const { root, openPath, setError } = useDocStore.getState();
+        if (root) useDocStore.getState().setTree(await scanTree(root));
+        if (e.path === openPath && e.kind === 'deleted') {
+          setError(`${e.path.split('/').pop()} no longer exists on disk`);
+          return;
+        }
+        if (e.path === openPath && e.kind !== 'deleted') {
+          useDocStore.getState().onDiskChange(e.path, await readFile(e.path));
+        }
+      } catch (err) {
+        useDocStore.getState().setError(String(err));
       }
     });
     return () => { unlisten.then((u) => u()); };
   }, []);
 
   async function openRoot(root: string) {
-    s.setRoot(root);
-    s.setTree(await scanTree(root));
-    await startWatch(root);
-    await addRecent(root);
-    setRecents(await getRecents());
+    s.setError(null);
+    try {
+      s.setRoot(root);
+      s.setTree(await scanTree(root));
+      await startWatch(root);
+      await addRecent(root);
+      setRecents(await getRecents());
+    } catch (err) {
+      s.setError(String(err));
+    }
   }
 
   async function importFolder() {
@@ -44,13 +57,21 @@ export default function App() {
   }
 
   async function open(path: string) {
-    s.openFile(path, await readFile(path));
+    s.setError(null);
+    try {
+      s.openFile(path, await readFile(path));
+    } catch (err) {
+      s.setError(String(err));
+    }
   }
 
   function doSave() {
-    const { openPath, editorContent, markSaved } = useDocStore.getState();
+    const { openPath, editorContent, markSaved, setError } = useDocStore.getState();
     if (!openPath) return;
-    void writeFile(openPath, editorContent).then(() => markSaved());
+    setError(null);
+    void writeFile(openPath, editorContent).then(() => markSaved()).catch((err: unknown) => {
+      useDocStore.getState().setError(String(err));
+    });
   }
 
   useEffect(() => {
@@ -80,6 +101,12 @@ export default function App() {
         <FolderTree tree={s.tree} openPath={s.openPath} onSelect={open} />
       </aside>
       <section className="content">
+        {s.error && (
+          <div className="error-banner">
+            {s.error}
+            <button onClick={() => s.setError(null)}>Dismiss</button>
+          </div>
+        )}
         {s.openPath ? (
           <>
             <header className="pane-header">
