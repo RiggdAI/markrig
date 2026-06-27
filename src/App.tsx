@@ -51,9 +51,13 @@ export default function App() {
   }
 
   async function importFolder() {
-    const root = await pickFolder();
-    if (!root) return;
-    await openRoot(root);
+    try {
+      const root = await pickFolder();
+      if (!root) return;
+      await openRoot(root);
+    } catch (err) {
+      s.setError(String(err));
+    }
   }
 
   async function open(path: string) {

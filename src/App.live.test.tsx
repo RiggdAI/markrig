@@ -74,10 +74,12 @@ test('scenario B: conflict banner when file changes while editor is dirty', asyn
   );
 
   // Make the file dirty by editing editor content via store
-  useDocStore.getState().setEditorContent('# My edits');
+  const userEditedContent = '# My edits';
+  useDocStore.getState().setEditorContent(userEditedContent);
 
   // Simulate disk change with new content
-  mockedReadFile.mockResolvedValue('# Updated Plan');
+  const newDiskContent = '# Updated Plan';
+  mockedReadFile.mockResolvedValue(newDiskContent);
   await waitFor(() => expect(capturedMdCallback).not.toBeNull());
   capturedMdCallback!({ kind: 'changed', path: '/r/plan.md' });
 
@@ -85,8 +87,12 @@ test('scenario B: conflict banner when file changes while editor is dirty', asyn
   await waitFor(() =>
     expect(screen.getByText(/this file changed on disk/i)).toBeInTheDocument(),
   );
-  // The editor still shows the user's edits (not the disk version)
-  expect(useDocStore.getState().editorContent).toBe('# My edits');
+  // Verify that store correctly handled onDiskChange in dirty state:
+  // editorContent is still the user's edits, diskContent has the new disk version
+  await waitFor(() => {
+    expect(useDocStore.getState().editorContent).toBe(userEditedContent);
+    expect(useDocStore.getState().diskContent).toBe(newDiskContent);
+  });
 });
 
 test('scenario C: deleted open file shows error notice', async () => {
