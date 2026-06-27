@@ -1,6 +1,9 @@
 //! Recursive folder watching. Emits debounced markdown change events.
 
+use notify_debouncer_mini::{new_debouncer, notify::RecursiveMode};
 use serde::Serialize;
+use std::time::Duration;
+use tauri::{AppHandle, Emitter};
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "lowercase")]
@@ -26,6 +29,35 @@ pub fn classify_event(existed_before: bool, exists_now: bool) -> MdEventKind {
         (true, false) => MdEventKind::Deleted,
         _ => MdEventKind::Changed,
     }
+}
+
+/// Starts a recursive watcher on `root`, emitting `md-event` for markdown paths.
+/// The debouncer is leaked intentionally so it lives for the app's lifetime.
+pub fn start_watch(app: AppHandle, root: String) -> Result<(), String> {
+    let mut debouncer = new_debouncer(Duration::from_millis(300), move |res: notify_debouncer_mini::DebounceEventResult| {
+        if let Ok(events) = res {
+            for ev in events {
+                let path = ev.path;
+                if !is_markdown(&path) {
+                    continue;
+                }
+                let kind = classify_event(true, path.exists());
+                let _ = app.emit(
+                    "md-event",
+                    MdEvent { kind, path: path.to_string_lossy().to_string() },
+                );
+            }
+        }
+    })
+    .map_err(|e| format!("Couldn't create watcher: {e}"))?;
+
+    debouncer
+        .watcher()
+        .watch(std::path::Path::new(&root), RecursiveMode::Recursive)
+        .map_err(|e| format!("Couldn't watch {root}: {e}"))?;
+
+    std::mem::forget(debouncer);
+    Ok(())
 }
 
 #[cfg(test)]
