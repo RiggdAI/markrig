@@ -1,3 +1,4 @@
+import { test, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { FolderTree } from './FolderTree';
 import type { TreeNode } from '../types';
@@ -22,4 +23,10 @@ test('renders nested files and fires onSelect with the path', () => {
 test('renders empty state when tree is null', () => {
   render(<FolderTree tree={null} openPath={null} onSelect={() => {}} />);
   expect(screen.getByText(/no folder/i)).toBeInTheDocument();
+});
+
+test('marks the open file with selected class', () => {
+  render(<FolderTree tree={tree} openPath="/r/README.md" onSelect={() => {}} />);
+  expect(screen.getByText('README.md')).toHaveClass('selected');
+  expect(screen.getByText('plan.md')).not.toHaveClass('selected');
 });
