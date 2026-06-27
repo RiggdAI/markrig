@@ -8,7 +8,7 @@ export function mergeRecent(list: string[], path: string, max: number): string[]
 }
 
 async function store() {
-  return load('markrig.json', { autoSave: true });
+  return load('markrig.json', { defaults: {}, autoSave: true });
 }
 
 export async function getRecents(): Promise<string[]> {
