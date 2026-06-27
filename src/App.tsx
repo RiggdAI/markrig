@@ -1,51 +1,96 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { invoke } from "@tauri-apps/api/core";
-import "./App.css";
+import { useEffect } from 'react';
+import './App.css';
+import { useDocStore, isDirty } from './store/useDocStore';
+import { FolderTree } from './components/FolderTree';
+import { RenderedPane } from './components/RenderedPane';
+import { EditorPane } from './components/EditorPane';
+import {
+  pickFolder, scanTree, readFile, writeFile, startWatch, onMdEvent,
+} from './tauri';
 
-function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+export default function App() {
+  const s = useDocStore();
+  const dirty = isDirty(s);
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
+  useEffect(() => {
+    const unlisten = onMdEvent(async (e) => {
+      const { root } = useDocStore.getState();
+      if (root) useDocStore.getState().setTree(await scanTree(root));
+      if (e.path === useDocStore.getState().openPath && e.kind !== 'deleted') {
+        useDocStore.getState().onDiskChange(e.path, await readFile(e.path));
+      }
+    });
+    return () => { unlisten.then((u) => u()); };
+  }, []);
+
+  async function importFolder() {
+    const root = await pickFolder();
+    if (!root) return;
+    s.setRoot(root);
+    s.setTree(await scanTree(root));
+    await startWatch(root);
   }
 
+  async function open(path: string) {
+    s.openFile(path, await readFile(path));
+  }
+
+  async function save() {
+    if (!s.openPath) return;
+    await writeFile(s.openPath, s.editorContent);
+    s.markSaved();
+  }
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); save(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
   return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
-
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
+    <main className="app">
+      <aside className="sidebar">
+        <button onClick={importFolder}>Import Folder</button>
+        <FolderTree tree={s.tree} openPath={s.openPath} onSelect={open} />
+      </aside>
+      <section className="content">
+        {s.openPath ? (
+          <>
+            <header className="pane-header">
+              <span className="filename">
+                {s.openPath.split('/').pop()}{dirty ? ' •' : ''}
+              </span>
+              <div className="actions">
+                <button
+                  className={s.viewMode === 'rendered' ? 'active' : ''}
+                  onClick={() => s.setViewMode('rendered')}
+                >Rendered</button>
+                <button
+                  className={s.viewMode === 'source' ? 'active' : ''}
+                  onClick={() => s.setViewMode('source')}
+                >Source</button>
+                <button onClick={save} disabled={!dirty}>Save</button>
+              </div>
+            </header>
+            {s.conflict && (
+              <div className="conflict-banner">
+                This file changed on disk.
+                <button onClick={() => s.resolveConflict('reload')}>Reload</button>
+                <button onClick={() => s.resolveConflict('keep')}>Keep mine</button>
+              </div>
+            )}
+            {s.viewMode === 'rendered' ? (
+              <RenderedPane content={s.editorContent} />
+            ) : (
+              <EditorPane value={s.editorContent} onChange={s.setEditorContent} />
+            )}
+          </>
+        ) : (
+          <div className="empty-state">Import a folder to get started</div>
+        )}
+      </section>
     </main>
   );
 }
-
-export default App;
