@@ -1,0 +1,13 @@
+.app { display: flex; height: 100vh; font-family: system-ui, sans-serif; }
+.sidebar { width: 260px; border-right: 1px solid #ddd; padding: 8px; overflow: auto; }
+.content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.pane-header { display: flex; justify-content: space-between; align-items: center;
+  padding: 8px; border-bottom: 1px solid #ddd; }
+.actions button.active { font-weight: 600; }
+.conflict-banner { background: #fff4e5; padding: 8px; display: flex; gap: 8px; align-items: center; }
+.error-banner { background: #fdecea; padding: 8px; display: flex; gap: 8px; align-items: center; color: #b71c1c; }
+.rendered-pane, .editor-pane { flex: 1; overflow: auto; padding: 16px; }
+.folder-tree ul { list-style: none; padding-left: 12px; margin: 0; }
+.folder-tree button { background: none; border: none; cursor: pointer; text-align: left; padding: 2px 4px; width: 100%; }
+.folder-tree button.selected { background: #e8f0fe; }
+.empty-state { margin: auto; color: #888; }
